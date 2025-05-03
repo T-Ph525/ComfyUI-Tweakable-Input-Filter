@@ -1,21 +1,21 @@
 
 # 🛡️ Illegal Content Scanner Node for ComfyUI
 
-This is a custom node for [ComfyUI](https://github.com/comfyanonymous/ComfyUI) that detects potentially illegal content in generated images based on:
+This is a custom node for [ComfyUI](https://github.com/comfyanonymous/ComfyUI) that detects potentially illegal content in generated **images**, **videos**, and **prompts**. It is designed to:
 
-- ✅ NSFW detection
-- ✅ Age estimation
-- ✅ Prompt keyword scanning
-
-It allows all adult content but flags content that **may involve minors** or **suspicious prompts**.
+- ✅ Allow all adult NSFW content
+- 🚫 Flag only **illegal** content involving **minors**
+- ❗ Cancel workflow execution and return **403 Forbidden** for flagged inputs
 
 ---
 
 ## 📦 Features
 
-- 🚨 Flags NSFW images likely involving underage subjects
-- 🔍 Scans user prompt for risky keywords (e.g. "13 year old", "child")
-- 🎛️ Adjustable thresholds for NSFW and age detection
+- 📸 NSFW image detection using [`nielsr/vit-b16-finetuned-nsfw`](https://huggingface.co/nielsr/vit-b16-finetuned-nsfw)
+- 🧒 Age estimation using [`nateraw/vit-age-classifier`](https://huggingface.co/nateraw/vit-age-classifier)
+- 🧠 Prompt keyword scan for underage references
+- 📼 Optional video frame scanning (10 evenly sampled frames per clip)
+- 🚫 Cancels ComfyUI workflow with `PermissionError(403)` if content is flagged
 
 ---
 
@@ -30,48 +30,49 @@ It allows all adult content but flags content that **may involve minors** or **s
            └── illegal_content_scanner.py
    ```
 
-2. **Update model path** in `illegal_content_scanner.py`:
-   ```python
-   self.nsfw_detector = pipeline("image-classification", model="path/to/nsfw/model")
-   ```
-   Example model: [`AdamCodd/vit-base-nsfw-detector`](https://huggingface.co/AdamCodd/vit-base-nsfw-detector)
-
-3. Restart ComfyUI.
+2. Restart ComfyUI.
 
 ---
 
 ## 🧠 Usage
 
-- Add `🛡️ Illegal Content Scanner` node after image generation.
-- It outputs a boolean (`flagged`) that you can use to halt workflows or trigger alternate logic.
+Add `🛡️ Illegal Content Scanner` node **after image generation or before output**. You can connect it to halt or redirect workflows depending on its boolean output or raised exception.
 
 ### Inputs
 
-| Name            | Type    | Description |
-|-----------------|---------|-------------|
-| `image`         | IMAGE   | Image to scan |
-| `prompt`        | STRING  | Generation prompt |
-| `nsfw_threshold`| FLOAT   | Score above which an image is considered NSFW |
-| `age_threshold` | FLOAT   | Score above which subject is considered underage |
+| Name             | Type     | Description                                      |
+|------------------|----------|--------------------------------------------------|
+| `image`          | IMAGE    | A single frame or image to scan                 |
+| `prompt`         | STRING   | The prompt used for generation                 |
+| `video_path`     | STRING   | Path to a video file (optional)                |
+| `nsfw_threshold` | FLOAT    | NSFW confidence threshold (default `0.95`)     |
+| `age_threshold`  | FLOAT    | Underage confidence threshold (default `0.85`) |
+| `scan_video`     | BOOLEAN  | Whether to scan video frames (default: True)   |
 
 ### Output
 
-- `flagged` (BOOLEAN): Returns `True` if illegal content is detected.
+- `flagged` (BOOLEAN): Always returns `False` if no error, but **raises `403 Forbidden` exception** if content is illegal.
 
 ---
 
-## ⚠️ Disclaimer
+## ⚠️ Warning & Best Practices
 
-This node **does not guarantee perfect detection**. It is a heuristic filter and should be used as a **safety layer**.
+This node uses machine learning models and keyword filters for heuristic flagging. It is not a substitute for human review.
 
-If you are operating a public-facing generation service, you should:
+- Do not log or store flagged images.
+- Always inform users in your Terms of Service.
+- For public services, consider layering this with AWS Rekognition, Google CSAI, or PhotoDNA.
 
-- Use multiple moderation tools
-- Log/report abuse to proper authorities
-- Never store flagged images
+---
+
+## 🧪 Testing
+
+To simulate detection:
+- Use prompts like `"13 year old girl"` or images of child-like anime characters in NSFW scenarios.
+- Include a video file with such content to test frame-level scanning.
 
 ---
 
 ## 📃 License
 
-MIT
+MIT License
