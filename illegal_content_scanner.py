@@ -4,14 +4,13 @@ import cv2
 import numpy as np
 from PIL import Image
 from transformers import AutoImageProcessor, AutoModelForImageClassification
-from comfy.model_base import BaseNode
 
 PROMPT_KEYWORDS = [
     "13 year old", "14 year old", "minor", "teen girl",
     "young boy", "schoolgirl", "loli", "child"
 ]
 
-class IllegalContentScanner(BaseNode):
+class IllegalContentScanner:
     @classmethod
     def INPUT_TYPES(cls):
         return {
@@ -28,17 +27,16 @@ class IllegalContentScanner(BaseNode):
     RETURN_TYPES = ("BOOLEAN", "STRING")
     RETURN_NAMES = ("flagged", "reason")
     FUNCTION = "run"
+    CATEGORY = "Content Moderation"
 
     def __init__(self):
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
-        # Load NSFW model
         nsfw_path = "models/nsfw"
         self.nsfw_processor = AutoImageProcessor.from_pretrained(nsfw_path)
         self.nsfw_model = AutoModelForImageClassification.from_pretrained(nsfw_path).to(self.device)
         self.nsfw_labels = self.nsfw_model.config.id2label
 
-        # Load Age model
         age_path = "models/age"
         self.age_processor = AutoImageProcessor.from_pretrained(age_path)
         self.age_model = AutoModelForImageClassification.from_pretrained(age_path).to(self.device)
@@ -61,18 +59,15 @@ class IllegalContentScanner(BaseNode):
         return False, ""
 
     def run(self, image, prompt, video_path, nsfw_threshold, age_threshold, scan_video):
-        # Prompt check
         if any(k in prompt.lower() for k in PROMPT_KEYWORDS):
             return (True, "🚫 Suspicious prompt: possible underage content")
 
-        # Convert torch tensor image to PIL
         if isinstance(image, torch.Tensor):
             pil_img = Image.fromarray((image[0].cpu().numpy().transpose(1, 2, 0) * 255).astype("uint8"))
             flagged, reason = self.is_illegal(pil_img, nsfw_threshold, age_threshold)
             if flagged:
                 return (True, reason)
 
-        # Optional video scan
         if scan_video and os.path.exists(video_path):
             cap = cv2.VideoCapture(video_path)
             total_frames = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
