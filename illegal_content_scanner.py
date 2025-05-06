@@ -1,6 +1,7 @@
 import torch
 from PIL import Image
 from transformers import AutoImageProcessor, AutoModelForImageClassification
+from fastapi import HTTPException
 
 PROMPT_KEYWORDS = [
     "13 year old", "14 year old", "15 year old", "16 year old", "17 year old",
@@ -44,15 +45,13 @@ class IllegalContentScanner:
         return self.age_labels[label_idx].lower(), scores[label_idx].item()
 
     def run(self, image, prompt, age_threshold):
-        # Check prompt for underage-related keywords
         if any(k in prompt.lower() for k in PROMPT_KEYWORDS):
-            return (True, "🚫 Suspicious prompt: possible underage content")
+            raise HTTPException(status_code=403, detail="🚫 Suspicious prompt: possible underage content")
 
-        # Check age classification from image
         if isinstance(image, torch.Tensor):
             pil_img = Image.fromarray((image[0].cpu().numpy().transpose(1, 2, 0) * 255).astype("uint8"))
             age_label, age_score = self.predict_age(pil_img)
             if age_label in ["child", "teen"] and age_score > age_threshold:
-                return (True, f"🚫 Detected underage appearance (age: {age_label}, confidence: {age_score:.2f})")
+                raise HTTPException(status_code=403, detail=f"🚫 Underage detected (age: {age_label}, score: {age_score:.2f})")
 
         return (False, "✅ Passed all checks")
